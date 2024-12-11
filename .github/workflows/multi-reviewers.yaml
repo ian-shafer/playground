@@ -2,10 +2,11 @@ name: 'multi-reviewers'
 
 on:
   pull_request:
-    - 'opened'
-    - 'edited'
-    - 'ready_for_review'
-    - 'review_requested'
+    types:
+      - 'opened'
+      - 'edited'
+      - 'ready_for_review'
+      - 'review_requested'
   pull_request_review:
     types:
       - 'submitted'
