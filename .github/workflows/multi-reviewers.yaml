@@ -31,4 +31,5 @@ jobs:
         with:
           retries: 3
           script: |-
-            core.setFailed("I never work!");
+            const name = "Ian Shafer";
+            //core.setFailed("I never work!");
