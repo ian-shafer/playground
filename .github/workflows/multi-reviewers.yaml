@@ -1,6 +1,7 @@
 name: 'multi-reviewers'
 
 on:
+  push:
   pull_request:
     types:
       - 'opened'
