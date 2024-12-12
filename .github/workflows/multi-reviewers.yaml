@@ -33,6 +33,7 @@ jobs:
         with:
           retries: 3
           script: |-
+            core.info(JSON.stringify(github));
             const getArgs = {
               owner: context.repo.owner,
               repo: context.repo.repo,
