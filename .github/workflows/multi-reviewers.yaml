@@ -34,6 +34,7 @@ jobs:
           retries: 3
           script: |-
             core.info(JSON.stringify(github));
+            core.info(JSON.stringify(context));
             const getArgs = {
               owner: context.repo.owner,
               repo: context.repo.repo,
