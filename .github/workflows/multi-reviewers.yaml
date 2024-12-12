@@ -33,5 +33,9 @@ jobs:
         with:
           retries: 3
           script: |-
-            const name = "Ian Shafer";
-            //core.setFailed("I never work!");
+            const pull = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.info(JSON.stringify(pull));
