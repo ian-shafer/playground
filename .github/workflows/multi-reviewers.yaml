@@ -33,9 +33,11 @@ jobs:
         with:
           retries: 3
           script: |-
-            const pull = await github.rest.pulls.get({
+            const getArgs = {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.issue.number,
-            });
+            };
+            core.info(JSON.stringify(getArgs));
+            const pull = await github.rest.pulls.get(getArgs);
             core.info(JSON.stringify(pull));
