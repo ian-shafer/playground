@@ -8,7 +8,7 @@ function containsLogin(members, login) {
 }
 
 /** Returns the number of approvals from members in the given list. */
-function inOrgApprovalCount(members, submittedReviews, prLogin) {
+function inOrgApprovedCount(members, submittedReviews, prLogin) {
   const reviewStateByLogin = {};
   submittedReviews
     // Remove the PR user.
@@ -61,7 +61,7 @@ async function run(orgMembersPath, prNumber, repoName, repoOwner, github, core) 
     pull_number: prNumber,
   });
 
-  const approvalCount = inOrgApprovalCount(members, submittedReviews, prLogin);
+  const approvedCount = inOrgApprovedCount(members, submittedReviews, prLogin);
 
   core.info(`Found ${approvedCount} ${APPROVED} reviews.`);
 
