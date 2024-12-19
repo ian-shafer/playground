@@ -1,0 +1,40 @@
+name: 'test-multi-reviewers'
+
+on:
+  pull_request:
+    types:
+      - 'opened'
+      - 'edited'
+      - 'reopened'
+      - 'synchronize'
+      - 'ready_for_review'
+      - 'review_requested'
+      - 'review_request_removed'
+  pull_request_review:
+    types:
+      - 'submitted'
+      - 'dismissed'
+
+permissions:
+  contents: 'read'
+  pull-requests: 'read'
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  checkout:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout repo'
+        uses: 'actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b' # ratchet:actions/checkout@v4
+  multi-approvers:
+    needs: checkout
+    if: contains(fromJSON('["pull_request", "pull_request_review"]'), github.event_name)
+    uses: './.github/workflows/multi-approvers.yml'
+    with:
+      org-members-path: './members.json'
+      pr-number: ${{ github.event.number }}
+      repo-name: ${{ github.event.repository.name }}
+      repo-owner: ${{ github.event.repository.owner.login }}
