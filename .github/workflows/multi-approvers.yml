@@ -1,0 +1,48 @@
+name: 'multi-approvers'
+
+on:
+  workflow_call:
+    inputs:
+      org-members-path:
+        required: true
+        type: string
+      pr-number:
+        required: true
+        type: number
+      repo-name:
+        required: true
+        type: string
+      repo-owner:
+        required: true
+        type: string
+
+permissions:
+  contents: 'read'
+  pull-requests: 'read'
+
+jobs:
+  multi-reviewers:
+    if: contains(fromJSON('["pull_request", "pull_request_review"]'), github.event_name)
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b' # ratchet:actions/checkout@v4
+
+      - name: 'Check approver requirements'
+        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        with:
+          retries: 3
+          script: |-
+            const orgMembersPath = '${{ inputs.org-members-path }}';
+            const prNumber = '${{ inputs.pr-number }}';
+            const repoName = '${{ inputs.repo-name }}';
+            const repoOwner = '${{ inputs.repo-owner }}';
+            const script = require('./.github/workflows/multi-approvers.js');
+            await script({
+              orgMembersPath,
+              prNumber,
+              repoName,
+              repoOwner,
+              github,
+              core,
+            });
