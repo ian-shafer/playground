@@ -44,10 +44,10 @@ jobs:
           retries: 3
           script: |-
             const branch = '${{ github.event.pull_request.head.ref }}'
-            const prNumber = '${{ inputs.pr-number }}';
-            const repoName = '${{ inputs.repo-name }}';
-            const repoOwner = '${{ inputs.repo-owner }}';
-            const workflowRef = '${{ inputs.workflow-ref }}';
+            const prNumber = '${{ github.event.pull_request.number }}'
+            const repoName = '${{ github.event.repository.name }}'
+            const repoOwner = '${{ github.event.repository.owner.login }}'
+            const workflowRef = '${{ env.GITHUB_WORKFLOW_REF }}';
             const {onPullRequestReview} = require('./.github/workflows/multi-approvers.js');
             await onPullRequestReview({
               branch,
