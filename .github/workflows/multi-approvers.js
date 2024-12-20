@@ -1,6 +1,6 @@
 const APPROVED = 'APPROVED';
 const COMMENTED = 'COMMENTED';
-const MIN_IN_ORG_APPROVAL_COUNT = 2;
+const MIN_IN_ORG_APPROVAL_COUNT = 1;
 
 /** Returns true if the login exists in the members list. */
 function containsLogin(members, login) {
