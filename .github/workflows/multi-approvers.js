@@ -84,7 +84,7 @@ async function onPullRequestReview({workflowRef, repoName, repoOwner, branch, pr
     per_page: 100,
   });
 
-  core.info(`Found ${runs.length} workflow runs.`);
+  core.info(`Found workflow runs: ${JSON.stringify(runs)}`);
 
   const failedRuns = runs
     .filter((r) =>
