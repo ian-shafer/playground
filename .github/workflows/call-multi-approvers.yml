@@ -1,4 +1,4 @@
-name: 'test-multi-reviewers'
+name: 'test-multi-approvers'
 
 on:
   pull_request:
