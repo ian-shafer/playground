@@ -72,6 +72,7 @@ async function onPullRequest({orgMembersPath, prNumber, repoName, repoOwner, git
 
 async function onPullRequestReview({workflowRef, repoName, repoOwner, branch, prNumber, github, core}) {
   // Get the filename of the workflow.
+  core.info(`GITHUB_WORKFLOW_REF: [${workflowRef}]`);
   const workflowFilename = workflowRef.split('@')[0].split('/').pop();
 
   const workflows = await github.paginate(github.rest.actions.listWorkflowRuns, {
