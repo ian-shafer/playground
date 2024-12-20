@@ -72,10 +72,9 @@ async function onPullRequest({orgMembersPath, prNumber, repoName, repoOwner, git
 
 async function onPullRequestReview({workflowRef, repoName, repoOwner, branch, prNumber, github, core}) {
   // Get the filename of the workflow.
-  core.info(`GITHUB_WORKFLOW_REF: [${workflowRef}]`);
   const workflowFilename = workflowRef.split('@')[0].split('/').pop();
 
-  const workflows = await github.paginate(github.rest.actions.listWorkflowRuns, {
+  const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
     owner: repoOwner,
     repo: repoName,
     workflow_id: workflowFilename,
@@ -85,11 +84,15 @@ async function onPullRequestReview({workflowRef, repoName, repoOwner, branch, pr
     per_page: 100,
   });
 
-  const failedRuns = workflows
-    .filter((w) =>
-      w.pull_requests.map((pr) => pr.number).includes(prNumber)
+  core.info(`Found ${runs.length} workflow runs.`);
+
+  const failedRuns = runs
+    .filter((r) =>
+      r.pull_requests.map((pr) => pr.number).includes(prNumber)
     )
     .sort((v) => v.id);
+
+  core.info(`Failed workflow runs: ${JSON.stringify(failedRuns)}`);
 
   if (failedRuns.length > 0) {
     await github.rest.actions.reRunWorkflow({
