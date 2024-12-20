@@ -42,7 +42,7 @@ function inOrgApprovedCount(members, submittedReviews, prLogin) {
 }
 
 /** Checks that approval requirements are satisfied. */
-async function run(orgMembersPath, prNumber, repoName, repoOwner, github, core) {
+async function onPullRequest({orgMembersPath, prNumber, repoName, repoOwner, github, core}) {
   const members = require(orgMembersPath);
   const prResponse = await github.rest.pulls.get({owner: repoOwner, repo: repoName, pull_number: prNumber});
   const prLogin = prResponse.data.user.login;
@@ -70,5 +70,7 @@ async function run(orgMembersPath, prNumber, repoName, repoOwner, github, core) 
   }
 }
 
-module.exports = async ({orgMembersPath, prNumber, repoName, repoOwner, github, core}) =>
-  run(orgMembersPath, prNumber, repoName, repoOwner, github, core);
+async function onPullRequestReview() {
+}
+
+module.exports = {onPullRequest, onPullRequestReview};
