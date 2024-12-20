@@ -6,15 +6,6 @@ on:
       org-members-path:
         required: true
         type: string
-      pr-number:
-        required: true
-        type: number
-      repo-name:
-        required: true
-        type: string
-      repo-owner:
-        required: true
-        type: string
 
 permissions:
   contents: 'read'
@@ -34,9 +25,9 @@ jobs:
           retries: 3
           script: |-
             const orgMembersPath = '${{ inputs.org-members-path }}';
-            const prNumber = '${{ inputs.pr-number }}';
-            const repoName = '${{ inputs.repo-name }}';
-            const repoOwner = '${{ inputs.repo-owner }}';
+            const prNumber = '${{ github.event.pull_request.number }}'
+            const repoName = '${{ github.event.repository.name }}'
+            const repoOwner = '${{ github.event.repository.owner.login }}'
             const {onPullRequest} = require('./.github/workflows/multi-approvers.js');
             await onPullRequest({
               orgMembersPath,
@@ -52,5 +43,18 @@ jobs:
         with:
           retries: 3
           script: |-
+            const branch = '${{ github.event.pull_request.head.ref }}'
+            const prNumber = '${{ inputs.pr-number }}';
+            const repoName = '${{ inputs.repo-name }}';
+            const repoOwner = '${{ inputs.repo-owner }}';
+            const workflowRef = '${{ inputs.workflow-ref }}';
             const {onPullRequestReview} = require('./.github/workflows/multi-approvers.js');
-            await onPullRequestReview();
+            await onPullRequestReview({
+              branch,
+              prNumber,
+              repoName,
+              repoOwner,
+              workflowRef,
+              github,
+              core,
+            });
