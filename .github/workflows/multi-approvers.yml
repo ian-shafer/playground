@@ -25,7 +25,7 @@ jobs:
           retries: 3
           script: |-
             const orgMembersPath = '${{ inputs.org-members-path }}';
-            const prNumber = '${{ github.event.pull_request.number }}'
+            const prNumber = ${{ github.event.pull_request.number }}
             const repoName = '${{ github.event.repository.name }}'
             const repoOwner = '${{ github.event.repository.owner.login }}'
             const {onPullRequest} = require('./.github/workflows/multi-approvers.js');
@@ -44,7 +44,7 @@ jobs:
           retries: 3
           script: |-
             const branch = '${{ github.event.pull_request.head.ref }}'
-            const prNumber = '${{ github.event.pull_request.number }}'
+            const prNumber = ${{ github.event.pull_request.number }}
             const repoName = '${{ github.event.repository.name }}'
             const repoOwner = '${{ github.event.repository.owner.login }}'
             const workflowRef = '${{ github.workflow_ref }}';
