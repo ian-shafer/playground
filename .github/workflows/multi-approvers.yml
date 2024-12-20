@@ -47,7 +47,7 @@ jobs:
             const prNumber = '${{ github.event.pull_request.number }}'
             const repoName = '${{ github.event.repository.name }}'
             const repoOwner = '${{ github.event.repository.owner.login }}'
-            const workflowRef = '${{ env.GITHUB_WORKFLOW_REF }}';
+            const workflowRef = '${{ github.workflow_ref }}';
             const {onPullRequestReview} = require('./.github/workflows/multi-approvers.js');
             await onPullRequestReview({
               branch,
