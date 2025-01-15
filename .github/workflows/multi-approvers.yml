@@ -46,11 +46,12 @@ jobs:
         with:
           retries: 3
           script: |-
-            const orgMembersPath = '${{ inputs.org-members-path }}';
+            const orgMembersPath = '${{ github.workspace }}/${{ inputs.org-members-path }}';
             const prNumber = ${{ github.event.pull_request.number }}
             const repoName = '${{ github.event.repository.name }}'
             const repoOwner = '${{ github.event.repository.owner.login }}'
             const {onPullRequest} = require('./abcxyz/pkg/.github/workflows/multi-approvers.js');
+            const baseDir = '';
             await onPullRequest({
               orgMembersPath,
               prNumber,
