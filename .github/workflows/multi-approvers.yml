@@ -36,7 +36,6 @@ jobs:
       - name: 'Check checkout - 2'
         run: |
           ls abcxyz/pkg/.github/workflows
-        run: |
           ls .github/workflows
 
       - name: 'Check approver requirements'
