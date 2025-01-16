@@ -6,6 +6,10 @@ on:
       org-members-path:
         required: true
         type: string
+      multi-apporvers-js-url:
+        description: 'The URL to multi-approvers.js. This should typically not need to be set.'
+        type: string
+        default: 'https://raw.githubusercontent.com/ian-shafer/playground/main/.github/workflows/multi-approvers.js'
 
 permissions:
   actions: 'write'
@@ -27,7 +31,7 @@ jobs:
 
           # Download the file, passing in authentication to get a higher rate
           # limit: https://docs.github.com/en/rest/overview/resources-in-the-rest-api?apiVersion=2022-11-28#rate-limits-for-requests-from-github-actions
-          curl "https://raw.githubusercontent.com/ian-shafer/playground/main/.github/workflows/multi-approvers.js" \
+          curl "${{ inputs.multi-approvers-js-url }}" \
             --silent \
             --fail \
             --location \
