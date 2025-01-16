@@ -6,7 +6,7 @@ on:
       org-members-path:
         required: true
         type: string
-      multi-apporvers-js-url:
+      multi-approvers-js-url:
         description: 'The URL to multi-approvers.js. This should typically not need to be set.'
         type: string
         default: 'https://raw.githubusercontent.com/ian-shafer/playground/main/.github/workflows/multi-approvers.js'
