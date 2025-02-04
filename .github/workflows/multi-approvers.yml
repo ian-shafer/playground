@@ -23,18 +23,11 @@ jobs:
     steps:
       - name: 'Check inputs'
         run: |-
-<<<<<<< Updated upstream
-          if [[ "${{ github.event.inputs.org-members-path }}" = "test" ]]; then
-            echo "org-members-path cannot equal 'test'" 1>&2
-            exit 1;
-          fi
-=======
           if [[ ! (! -z "${{ github.event.inputs.org-members-path }}" && -z "${{ github.event.inputs.team-slug }}") &&
                 ! (-z "${{ github.event.inputs.org-members-path }}" && ! -z "${{ github.event.inputs.team-slug }}") ]]; then
-            echo "Invalid inputs" 1>&2                                           
+            echo "Invalid inputs. Does `this` work?" 1>&2                                           
             exit 1                                                               
           fi                                                                     
->>>>>>> Stashed changes
 
       - name: 'Checkout calling repo'
         uses: 'actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b' # ratchet:actions/checkout@v4
