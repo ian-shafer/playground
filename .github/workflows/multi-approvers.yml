@@ -25,7 +25,7 @@ jobs:
         run: |-
           if [[ ! (! -z "${{ github.event.inputs.org-members-path }}" && -z "${{ github.event.inputs.team-slug }}") &&
                 ! (-z "${{ github.event.inputs.org-members-path }}" && ! -z "${{ github.event.inputs.team-slug }}") ]]; then
-            echo "Invalid inputs. Does `this` work?" 1>&2                                           
+            echo "Invalid inputs. Does this work?" 1>&2                                           
             exit 1                                                               
           fi                                                                     
 
