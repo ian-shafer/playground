@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: 'Check inputs'
         run: |-
-          if [[ "${{ github.event.inputs.org-members-path }}" -eq "test" ]]; then
+          if [[ "${{ github.event.inputs.org-members-path }}" = "test" ]]; then
             echo "org-members-path cannot equal 'test'" 1>&2
             exit 1;
           fi
