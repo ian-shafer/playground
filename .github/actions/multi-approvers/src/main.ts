@@ -14,7 +14,6 @@
 
 import { context as gitHubContext, getOctokit } from "@actions/github";
 import * as actionsCore from "@actions/core";
-import { errorMessage } from '@google-github-actions/actions-utils';
 import { RestEndpointMethodTypes } from "@octokit/rest";
 import { OctokitOptions } from "@octokit/core";
 import { RequestError } from "@octokit/request-error";
@@ -327,7 +326,6 @@ export async function main(
   } catch (err) {
     core.debug(JSON.stringify(err));
 
-    /*
     let msg: string;
     if (typeof err === 'string') {
       msg = err;
@@ -336,7 +334,6 @@ export async function main(
     } else {
       msg = String(`[${typeof err}] ${err}`);
     }
-    */
-    core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
+    core.setFailed(`Multi-approvers action failed: ${msg}`);
   }
 }
