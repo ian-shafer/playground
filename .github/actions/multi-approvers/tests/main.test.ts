@@ -16,7 +16,7 @@ import { mock, test } from "node:test";
 import assert from "node:assert";
 import * as actionCore from "@actions/core";
 import { context as githubContext } from "@actions/github";
-import { main } from "../src/main.js";
+import { main } from "../src/main";
 import nock from "nock";
 
 type Context = typeof githubContext;

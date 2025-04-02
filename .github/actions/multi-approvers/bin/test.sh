@@ -15,8 +15,9 @@ set -eEuo pipefail
 
 FILES="$(node -e "process.stdout.write(require('node:fs').readdirSync('./', { recursive: true }).filter((e) => {return e.endsWith('.test.ts') && !e.startsWith('node_modules');}).sort().join(' '));")"
 
+  #--loader ts-node/esm \
 set -x
 exec node \
-  --loader ts-node/esm \
+  --require ts-node/register \
   --test-reporter spec \
   --test ${FILES}

@@ -14,6 +14,7 @@
 
 import { context as gitHubContext, getOctokit } from "@actions/github";
 import * as actionsCore from "@actions/core";
+import { errorMessage } from "@google-github-actions/actions-utils";
 import { RestEndpointMethodTypes } from "@octokit/rest";
 import { OctokitOptions } from "@octokit/core";
 import { RequestError } from "@octokit/request-error";
@@ -51,26 +52,8 @@ class TeamMembers {
     this.octokit = octokit;
   }
 
-  private hasStatus(err: unknown, status: number): boolean {
-    if (!err) {
-      return false;
-    }
-    if (typeof err !== "object") {
-      return false;
-    }
-    if (!Object.prototype.hasOwnProperty.call(err, "status")) {
-      return false;
-    }
-    const v: any = (err as any).status;
-    if (typeof v !== "number") {
-      return false;
-    }
-    return v === status;
-  }
-
   async contains(login: string): Promise<boolean> {
     try {
-      this.core.debug(`Testing for memebership status [${login}]`);
       const response = await this.octokit.rest.teams.getMembershipForUserInOrg({
         org: this.org,
         team_slug: this.teamSlug,
@@ -81,10 +64,7 @@ class TeamMembers {
         response.data.state === TeamMembers.ACTIVE
       );
     } catch (err) {
-      if (
-        (err instanceof RequestError && err.status === 404)/* ||
-        this.hasStatus(err, 404)*/
-      ) {
+      if (err instanceof RequestError && err.status === 404) {
         this.core.debug(
           `Received 404 testing membership; assuming user is not a member: ${JSON.stringify(
             err,
@@ -325,15 +305,17 @@ export async function main(
     }
   } catch (err) {
     core.debug(JSON.stringify(err));
+    /*
 
     let msg: string;
-    if (typeof err === 'string') {
+    if (typeof err === "string") {
       msg = err;
     } else if (err instanceof Error) {
       msg = err.message;
     } else {
       msg = String(`[${typeof err}] ${err}`);
     }
-    core.setFailed(`Multi-approvers action failed: ${msg}`);
+    */
+    core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
   }
 }
