@@ -2,7 +2,7 @@
   "name": "multi-approvers",
   "version": "1.0.0",
   "description": "GitHub Action that enforces approver requriements.",
-  "author": "",
+  "author": "Google LLC",
   "license": "Apache-2.0",
   "type": "commonjs",
   "scripts": {

@@ -8,7 +8,7 @@ export default ts.config(
   js.configs.recommended,
   ts.configs.eslintRecommended,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tsParser,
     },

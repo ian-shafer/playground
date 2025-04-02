@@ -1,15 +1,17 @@
 {
-  "include": ["src/**/*", "tests/**/*"],
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
-    "rootDir": "./",
-    "outDir": "./.tsc",
+    "alwaysStrict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "outDir": "./.tsc",
+    "rootDir": "./",
+    "skipLibCheck": true,
     "strict": true,
-    "skipLibCheck": true
+    "target": "es6"
   },
+  "include": ["src/**/*", "tests/**/*"],
   "ts-node": {
     "logError": true
   }
