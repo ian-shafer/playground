@@ -14,6 +14,7 @@
 
 import { context as gitHubContext, getOctokit } from "@actions/github";
 import * as actionsCore from "@actions/core";
+import { errorMessage } from '@google-github-actions/actions-utils';
 import { RestEndpointMethodTypes } from "@octokit/rest";
 import { OctokitOptions } from "@octokit/core";
 import { RequestError } from "@octokit/request-error";
@@ -70,6 +71,7 @@ class TeamMembers {
 
   async contains(login: string): Promise<boolean> {
     try {
+      this.core.debug(`Testing for memebership status [${login}]`);
       const response = await this.octokit.rest.teams.getMembershipForUserInOrg({
         org: this.org,
         team_slug: this.teamSlug,
@@ -81,8 +83,8 @@ class TeamMembers {
       );
     } catch (err) {
       if (
-        (err instanceof RequestError && err.status === 404) ||
-        this.hasStatus(err, 404)
+        (err instanceof RequestError && err.status === 404)/* ||
+        this.hasStatus(err, 404)*/
       ) {
         this.core.debug(
           `Received 404 testing membership; assuming user is not a member: ${JSON.stringify(
@@ -325,6 +327,7 @@ export async function main(
   } catch (err) {
     core.debug(JSON.stringify(err));
 
+    /*
     let msg: string;
     if (typeof err === 'string') {
       msg = err;
@@ -333,6 +336,7 @@ export async function main(
     } else {
       msg = String(`[${typeof err}] ${err}`);
     }
-    core.setFailed(`Multi-approvers action failed: ${msg}`);
+    */
+    core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
   }
 }
