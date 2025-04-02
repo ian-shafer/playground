@@ -15,7 +15,6 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
-    "@google-github-actions/actions-utils": "^0.8.6",
     "@octokit/request-error": "^6.1.7",
     "@octokit/rest": "^21.1.1"
   },
