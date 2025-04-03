@@ -63,10 +63,9 @@ export async function main(core: Core = ghCore, context: Context = ghContext) {
       logInfo: core.info,
     });
 
-    multiApproversAction.validate();
+    await multiApproversAction.validate();
   } catch (err) {
-    //core.debug(JSON.stringify(err));
-    core.debug('Caught error: ' + err);
-    //core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
+    core.debug(JSON.stringify(err));
+    core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
   }
 }
