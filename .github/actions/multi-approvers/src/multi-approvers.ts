@@ -193,7 +193,6 @@ export class MultiApproversAction {
     this.logInfo(`Found ${approvedCount} ${APPROVED} internal reviews.`);
 
     if (approvedCount < MIN_APPROVED_COUNT) {
-      this.logDebug("Throwing Error");
       throw new Error(
         `This pull request has ${approvedCount} of ${
           MIN_APPROVED_COUNT
