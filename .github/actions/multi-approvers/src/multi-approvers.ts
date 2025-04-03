@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_$" }]*/
+
 import { getOctokit } from "@actions/github";
 import { OctokitOptions } from "@octokit/core";
 import { RestEndpointMethodTypes } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
+import { Fail, Result, Success } from "./result"
 
 type PullRequestReview =
   RestEndpointMethodTypes["pulls"]["listReviews"]["response"]["data"];
@@ -29,7 +32,6 @@ export function isEventName(v: string): v is EventName {
 const MIN_APPROVED_COUNT = 2;
 const APPROVED = "approved";
 const COMMENTED = "commented";
-// DO NOT SUBMIT Make array and use includes()
 const ALLOWED_TEAM_MEMBER_ROLES = ["maintainer", "member"];
 const ACTIVE = "active";
 
@@ -43,8 +45,8 @@ interface MultiApproversParams {
   token: string;
   team: string;
   octokitOptions?: OctokitOptions;
-  logDebug: (msg: string) => void;
-  logInfo: (msg: string) => void;
+  logDebug: (_: string) => void;
+  logInfo: (_: string) => void;
 }
 
 export class MultiApproversAction {
@@ -71,9 +73,9 @@ export class MultiApproversAction {
     this.octokit = getOctokit(params.token, params.octokitOptions);
   }
 
-  private logDebug: (msg: string) => void;
+  private logDebug: (_: string) => void;
 
-  private logInfo: (msg: string) => void;
+  private logInfo: (_: string) => void;
 
   private async isInternal(login: string): Promise<boolean> {
     try {
@@ -158,7 +160,7 @@ export class MultiApproversAction {
   }
 
   /** Checks that approval requirements are satisfied. */
-  private async validateApprovers() {
+  private async validateApprovers(): Promise<Result> {
     const prResponse = await this.octokit.rest.pulls.get({
       owner: this.repoOwner,
       repo: this.repoName,
@@ -174,7 +176,7 @@ export class MultiApproversAction {
           prLogin
         } is an internal member, therefore no special approval rules apply.`,
       );
-      return;
+      return Success.INSTANCE;
     }
     const submittedReviews: PullRequestReview = await this.octokit.paginate(
       this.octokit.rest.pulls.listReviews,
@@ -193,12 +195,14 @@ export class MultiApproversAction {
     this.logInfo(`Found ${approvedCount} ${APPROVED} internal reviews.`);
 
     if (approvedCount < MIN_APPROVED_COUNT) {
-      throw new Error(
+      return new Fail(
         `This pull request has ${approvedCount} of ${
           MIN_APPROVED_COUNT
         } required internal approvals.`,
       );
     }
+
+    return Success.INSTANCE;
   }
 
   /**
@@ -249,8 +253,11 @@ export class MultiApproversAction {
     return response.data.workflow_id;
   }
 
-  async validate() {
-    await this.validateApprovers();
+  async validate(): Promise<Result> {
+    let result = await this.validateApprovers();
+    if (!result.isSuccess) {
+      return result;
+    }
 
     // If this action was triggered by a review, we want to re-run for previous
     // failed runs.
@@ -258,5 +265,7 @@ export class MultiApproversAction {
       const workflowId = await this.getWorkflowId();
       await this.revalidateApprovers(workflowId);
     }
+
+    return Success.INSTANCE;
   }
 }

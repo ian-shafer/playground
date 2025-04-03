@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_$" }]*/
+
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import nock from "nock";
@@ -19,7 +21,7 @@ import { MultiApproversAction } from "../src/multi-approvers";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 
-test("#main", { concurrency: true }, async (suite) => {
+test("#multi-approvers", { concurrency: true }, async (suite) => {
   suite.beforeEach(async () => {
     nock.cleanAll();
   });
@@ -61,13 +63,13 @@ test("#main", { concurrency: true }, async (suite) => {
       token: "fake-token",
       team,
       octokitOptions: { request: fetch },
-      logDebug: (msg: string) => {},
-      logInfo: (msg: string) => {},
+      logDebug: (_: string) => {},
+      logInfo: (_: string) => {},
     });
 
-    await assert.doesNotReject(
-      async () => await multiApproversAction.validate(),
-    );
+    const result = await multiApproversAction.validate();
+
+    assert(result.isSuccess);
   });
 
   await suite.test(
@@ -105,14 +107,14 @@ test("#main", { concurrency: true }, async (suite) => {
         token: "fake-token",
         team,
         octokitOptions: { request: fetch },
-        logDebug: (msg: string) => {},
-        logInfo: (msg: string) => {},
+        logDebug: (_: string) => {},
+        logInfo: (_: string) => {},
       });
 
-      await assert.rejects(async () => await multiApproversAction.validate(), {
-        name: "Error",
-        message: "This pull request has 0 of 2 required internal approvals.",
-      });
+      const result = await multiApproversAction.validate();
+
+      assert(!result.isSuccess);
+      assert.equal(result.errorMessage, "This pull request has 0 of 2 required internal approvals.");
     },
   );
 
@@ -184,13 +186,13 @@ test("#main", { concurrency: true }, async (suite) => {
         token: "fake-token",
         team,
         octokitOptions: { request: fetch },
-        logDebug: (msg: string) => {},
-        logInfo: (msg: string) => {},
+        logDebug: (_: string) => {},
+        logInfo: (_: string) => {},
       });
 
-      await assert.doesNotReject(
-        async () => await multiApproversAction.validate(),
-      );
+      const result = await multiApproversAction.validate();
+
+      assert(result.isSuccess);
     },
   );
 
@@ -260,14 +262,14 @@ test("#main", { concurrency: true }, async (suite) => {
       token: "fake-token",
       team,
       octokitOptions: { request: fetch },
-      logDebug: (msg: string) => {},
-      logInfo: (msg: string) => {},
+      logDebug: (_: string) => {},
+      logInfo: (_: string) => {},
     });
 
-    await assert.rejects(async () => await multiApproversAction.validate(), {
-      name: "Error",
-      message: "This pull request has 1 of 2 required internal approvals.",
-    });
+    const result = await multiApproversAction.validate();
+
+    assert(!result.isSuccess);
+    assert.equal(result.errorMessage, "This pull request has 1 of 2 required internal approvals.");
   });
 
   await suite.test("should handle rescinded approval", async () => {
@@ -351,14 +353,14 @@ test("#main", { concurrency: true }, async (suite) => {
       token: "fake-token",
       team,
       octokitOptions: { request: fetch },
-      logDebug: (msg: string) => {},
-      logInfo: (msg: string) => {},
+      logDebug: (_: string) => {},
+      logInfo: (_: string) => {},
     });
 
-    await assert.rejects(async () => await multiApproversAction.validate(), {
-      name: "Error",
-      message: "This pull request has 1 of 2 required internal approvals.",
-    });
+    const result = await multiApproversAction.validate();
+
+    assert(!result.isSuccess);
+    assert.equal(result.errorMessage, "This pull request has 1 of 2 required internal approvals.");
   });
 
   await suite.test("should fail with pending member approval", async () => {
@@ -427,14 +429,14 @@ test("#main", { concurrency: true }, async (suite) => {
       token: "fake-token",
       team,
       octokitOptions: { request: fetch },
-      logDebug: (msg: string) => {},
-      logInfo: (msg: string) => {},
+      logDebug: (_: string) => {},
+      logInfo: (_: string) => {},
     });
 
-    await assert.rejects(async () => await multiApproversAction.validate(), {
-      name: "Error",
-      message: "This pull request has 1 of 2 required internal approvals.",
-    });
+    const result = await multiApproversAction.validate();
+
+    assert(!result.isSuccess);
+    assert.equal(result.errorMessage, "This pull request has 1 of 2 required internal approvals.");
   });
 
   await suite.test("should re-run failed runs on PR reviews", async () => {
@@ -530,13 +532,13 @@ test("#main", { concurrency: true }, async (suite) => {
       token: "fake-token",
       team,
       octokitOptions: { request: fetch },
-      logDebug: (msg: string) => {},
-      logInfo: (msg: string) => {},
+      logDebug: (_: string) => {},
+      logInfo: (_: string) => {},
     });
 
-    await assert.rejects(async () => await multiApproversAction.validate(), {
-      name: "Error",
-      message: "This pull request has 1 of 2 required internal approvals.",
-    });
+    const result = await multiApproversAction.validate();
+
+    assert(!result.isSuccess);
+    assert.equal(result.errorMessage, "This pull request has 1 of 2 required internal approvals.");
   });
 });

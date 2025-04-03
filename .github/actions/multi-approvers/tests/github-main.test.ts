@@ -30,7 +30,7 @@ function getFakeCore(inputs: { [key: string]: string }): Core {
   } as unknown as Core;
 }
 
-test("#main", { concurrency: true }, async (suite) => {
+test("#github-main", { concurrency: true }, async (suite) => {
   suite.beforeEach(async () => {
     mock.reset();
   });
@@ -67,7 +67,7 @@ test("#main", { concurrency: true }, async (suite) => {
     const failMsg = setFailed.mock.calls[0].arguments[0];
     assert.equal(
       failMsg,
-      "Multi-approvers action failed: unexpected event [push].",
+      "Multi-approvers action failed: Unexpected event [push].",
     );
   });
 
@@ -100,7 +100,7 @@ test("#main", { concurrency: true }, async (suite) => {
     const failMsg = setFailed.mock.calls[0].arguments[0];
     assert.equal(
       failMsg,
-      "Multi-approvers action failed: invalid input(s): token is required; team is required",
+      "Multi-approvers action failed: Invalid input(s): token is required; team is required",
     );
   });
 
@@ -135,7 +135,7 @@ test("#main", { concurrency: true }, async (suite) => {
     const failMsg = setFailed.mock.calls[0].arguments[0];
     assert.equal(
       failMsg,
-      "Multi-approvers action failed: invalid input(s): token is required",
+      "Multi-approvers action failed: Invalid input(s): token is required",
     );
   });
 
@@ -170,7 +170,7 @@ test("#main", { concurrency: true }, async (suite) => {
     const failMsg = setFailed.mock.calls[0].arguments[0];
     assert.equal(
       failMsg,
-      "Multi-approvers action failed: invalid input(s): team is required",
+      "Multi-approvers action failed: Invalid input(s): team is required",
     );
   });
 });
