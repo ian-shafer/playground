@@ -12,12 +12,60 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as core from "@actions/core";
-import { context } from "@actions/github";
-import { main } from "./main.js";
+import * as ghCore from "@actions/core";
+import { context as ghContext } from "@actions/github";
+import { errorMessage } from "@google-github-actions/actions-utils";
+import { EventName, isEventName, MultiApproversAction } from "./main";
 
-/**
- * The entrypoint for the action. This file simply imports and runs the action's
- * main logic.
- */
-main(core, context);
+type Core = typeof ghCore;
+type Context = typeof ghContext;
+
+function validateInputs(token?: string, team?: string) {
+  const errors = [];
+  if (!token) {
+    errors.push("token is required");
+  }
+  if (!team) {
+    errors.push("team is required");
+  }
+  if (errors.length > 0) {
+    throw new Error(`Invalid input(s): ${errors.join("; ")}`);
+  }
+}
+
+function validateEvent(rawEventName: string): EventName {
+  if (isEventName(rawEventName)) {
+    return rawEventName as EventName;
+  }
+  throw new Error(`Unexpected event [${rawEventName}].`);
+}
+
+export async function main(core: Core = ghCore, context: Context = ghContext) {
+  try {
+    const payload = context.payload;
+    const token = core.getInput("token");
+    const team = core.getInput("team");
+    const rawEventName = context.eventName;
+
+    const eventName = validateEvent(rawEventName);
+    validateInputs(token, team);
+
+    const multiApproversAction = new MultiApproversAction({
+      eventName,
+      runId: context.runId,
+      branch: payload.pull_request!.head.ref,
+      pullNumber: payload.pull_request!.number,
+      repoName: payload.repository!.name,
+      repoOwner: payload.repository!.owner.login,
+      token,
+      team,
+      logDebug: core.debug,
+      logInfo: core.info,
+    });
+
+    multiApproversAction.validate();
+  } catch (err) {
+    core.debug(JSON.stringify(err));
+    core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
+  }
+}

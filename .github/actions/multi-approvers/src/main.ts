@@ -12,60 +12,83 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { context as gitHubContext, getOctokit } from "@actions/github";
-import * as actionsCore from "@actions/core";
-import { errorMessage } from "@google-github-actions/actions-utils";
-import { RestEndpointMethodTypes } from "@octokit/rest";
+import { getOctokit } from "@actions/github";
 import { OctokitOptions } from "@octokit/core";
+import { RestEndpointMethodTypes } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 
 type PullRequestReview =
   RestEndpointMethodTypes["pulls"]["listReviews"]["response"]["data"];
-type Context = typeof gitHubContext;
 type Octokit = ReturnType<typeof getOctokit>;
-type Core = typeof actionsCore;
+export type EventName = "pull_request" | "pull_request_review";
+
+export function isEventName(v: string): v is EventName {
+  return ["pull_request", "pull_request_review"].includes(v);
+}
 
 const MIN_APPROVED_COUNT = 2;
 const APPROVED = "approved";
 const COMMENTED = "commented";
-const PULL_REQUEST_REVIEW = "pull_request_review";
-const PULL_REQUEST = "pull_request";
-const SUPPORTED_EVENTS = new Set<string>([PULL_REQUEST, PULL_REQUEST_REVIEW]);
+// DO NOT SUBMIT Make array and use includes()
+const ALLOWED_TEAM_MEMBER_ROLES = ["maintainer", "member"];
+const ACTIVE = "active";
 
-/** Members backed by a GitHub team. */
-class TeamMembers {
-  private static readonly ALLOWED_ROLES = new Set<string>([
-    "maintainer",
-    "member",
-  ]);
-  private static readonly ACTIVE = "active";
+interface MultiApproversParams {
+  eventName: EventName;
+  runId: number;
+  branch: string;
+  pullNumber: number;
+  repoName: string;
+  repoOwner: string;
+  token: string;
+  team: string;
+  octokitOptions?: OctokitOptions;
+  logDebug: (msg: string) => void;
+  logInfo: (msg: string) => void;
+}
 
-  private readonly org: string;
-  private readonly teamSlug: string;
-  private readonly core: Core;
+export class MultiApproversAction {
+  private readonly eventName: string;
+  private readonly runId: number;
+  private readonly branch: string;
+  private readonly pullNumber: number;
+  private readonly repoName: string;
+  private readonly repoOwner: string;
+  private readonly team: string;
   private readonly octokit: Octokit;
 
-  constructor(org: string, teamSlug: string, core: Core, octokit: Octokit) {
-    this.org = org;
-    this.teamSlug = teamSlug;
-    this.core = core;
-    this.octokit = octokit;
+  constructor(params: MultiApproversParams) {
+    this.eventName = params.eventName;
+    this.runId = params.runId;
+    this.branch = params.branch;
+    this.pullNumber = params.pullNumber;
+    this.repoName = params.repoName;
+    this.repoOwner = params.repoOwner;
+    this.team = params.team;
+    this.logDebug = params.logDebug;
+    this.logInfo = params.logInfo;
+
+    this.octokit = getOctokit(params.token, params.octokitOptions);
   }
 
-  async contains(login: string): Promise<boolean> {
+  private logDebug: (msg: string) => void;
+
+  private logInfo: (msg: string) => void;
+
+  private async isInternal(login: string): Promise<boolean> {
     try {
       const response = await this.octokit.rest.teams.getMembershipForUserInOrg({
-        org: this.org,
-        team_slug: this.teamSlug,
+        org: this.repoOwner,
+        team_slug: this.team,
         username: login,
       });
       return (
-        TeamMembers.ALLOWED_ROLES.has(response.data.role) &&
-        response.data.state === TeamMembers.ACTIVE
+        ALLOWED_TEAM_MEMBER_ROLES.includes(response.data.role) &&
+        response.data.state === ACTIVE
       );
     } catch (err) {
       if (err instanceof RequestError && err.status === 404) {
-        this.core.debug(
+        this.logDebug(
           `Received 404 testing membership; assuming user is not a member: ${JSON.stringify(
             err,
           )}`,
@@ -82,7 +105,7 @@ class TeamMembers {
   }
 
   /** Returns the number of approvals from members in the given list. */
-  async approvedCount(
+  private async internalApprovedCount(
     submittedReviews: PullRequestReview,
     prLogin: string,
   ): Promise<number> {
@@ -103,7 +126,7 @@ class TeamMembers {
       }
 
       // Only consider internal users.
-      const isInternalUser = await this.contains(reviewerLogin);
+      const isInternalUser = await this.isInternal(reviewerLogin);
       if (!isInternalUser) {
         continue;
       }
@@ -133,189 +156,107 @@ class TeamMembers {
     return Array.from(reviewStateByLogin.values()).filter((s) => s === APPROVED)
       .length;
   }
-}
 
-/** Checks that approval requirements are satisfied. */
-async function validateApprovers(
-  team: string,
-  prNumber: number,
-  repoName: string,
-  repoOwner: string,
-  core: Core,
-  octokit: Octokit,
-) {
-  const members = new TeamMembers(repoOwner, team, core, octokit);
-  const prResponse = await octokit.rest.pulls.get({
-    owner: repoOwner,
-    repo: repoName,
-    pull_number: prNumber,
-  });
-  const prLogin = prResponse.data.user.login;
-
-  const isInternalPr = await members.contains(prLogin);
-  if (isInternalPr) {
-    // Do nothing if the pull request owner is an internal user.
-    core.info(
-      `Pull request login ${
-        prLogin
-      } is an internal member, therefore no special approval rules apply.`,
-    );
-    return;
-  }
-  const submittedReviews: PullRequestReview = await octokit.paginate(
-    octokit.rest.pulls.listReviews,
-    {
-      owner: repoOwner,
-      repo: repoName,
-      pull_number: prNumber,
-    },
-  );
-
-  const approvedCount = await members.approvedCount(submittedReviews, prLogin);
-
-  core.info(`Found ${approvedCount} ${APPROVED} internal reviews.`);
-
-  if (approvedCount < MIN_APPROVED_COUNT) {
-    core.setFailed(
-      `This pull request has ${approvedCount} of ${
-        MIN_APPROVED_COUNT
-      } required internal approvals.`,
-    );
-  }
-}
-
-/**
- * Re-runs the approval checks on pull request review.
- *
- * This is required because GitHub treats checks made by pull_request and
- * pull_request_review as different status checks.
- */
-async function revalidateApprovers(
-  workflowId: number,
-  repoName: string,
-  repoOwner: string,
-  branch: string,
-  prNumber: number,
-  octokit: Octokit,
-) {
-  // Get all failed runs.
-  const runs = await octokit.paginate(octokit.rest.actions.listWorkflowRuns, {
-    owner: repoOwner,
-    repo: repoName,
-    workflow_id: workflowId,
-    branch,
-    event: "pull_request",
-    status: "failure",
-    per_page: 100,
-  });
-
-  const failedRuns = runs
-    .filter((r) =>
-      (r.pull_requests || []).map((pr) => pr.number).includes(prNumber),
-    )
-    .sort((v) => v.id);
-
-  // If there are failed runs for this PR, re-run the workflow.
-  if (failedRuns.length > 0) {
-    await octokit.rest.actions.reRunWorkflow({
-      owner: repoOwner,
-      repo: repoName,
-      run_id: failedRuns[0].id,
+  /** Checks that approval requirements are satisfied. */
+  private async validateApprovers() {
+    const prResponse = await this.octokit.rest.pulls.get({
+      owner: this.repoOwner,
+      repo: this.repoName,
+      pull_number: this.pullNumber,
     });
-  }
-}
+    const prLogin = prResponse.data.user.login;
 
-async function getWorkflowId(
-  octokit: Octokit,
-  repoOwner: string,
-  repoName: string,
-  runId: number,
-): Promise<number> {
-  const response = await octokit.rest.actions.getWorkflowRun({
-    owner: repoOwner,
-    repo: repoName,
-    run_id: runId,
-  });
-  return response.data.workflow_id;
-}
-
-function validateInputs(token?: string, team?: string) {
-  const errors = [];
-  if (!token) {
-    errors.push("token is required");
-  }
-  if (!team) {
-    errors.push("team is required");
-  }
-  if (errors.length > 0) {
-    throw new Error(`Invalid input(s): ${errors.join("; ")}`);
-  }
-}
-
-function validateEvent(eventName: string) {
-  if (!SUPPORTED_EVENTS.has(eventName)) {
-    throw new Error(
-      `Unexpected event [${eventName}]. Supported events are ${[
-        ...SUPPORTED_EVENTS,
-      ].join(", ")}`,
+    const isInternalPr = await this.isInternal(prLogin);
+    if (isInternalPr) {
+      // Do nothing if the pull request owner is an internal user.
+      this.logInfo(
+        `Pull request login ${
+          prLogin
+        } is an internal member, therefore no special approval rules apply.`,
+      );
+      return;
+    }
+    const submittedReviews: PullRequestReview = await this.octokit.paginate(
+      this.octokit.rest.pulls.listReviews,
+      {
+        owner: this.repoOwner,
+        repo: this.repoName,
+        pull_number: this.pullNumber,
+      },
     );
+
+    const approvedCount = await this.internalApprovedCount(
+      submittedReviews,
+      prLogin,
+    );
+
+    this.logInfo(`Found ${approvedCount} ${APPROVED} internal reviews.`);
+
+    if (approvedCount < MIN_APPROVED_COUNT) {
+      throw new Error(
+        `This pull request has ${approvedCount} of ${
+          MIN_APPROVED_COUNT
+        } required internal approvals.`,
+      );
+    }
   }
-}
 
-export async function main(
-  core: Core,
-  context: Context,
-  octokitOptions?: OctokitOptions,
-) {
-  try {
-    const eventName = context.eventName;
-    const runId = context.runId;
-    const payload = context.payload;
-    const branch = payload.pull_request!.head.ref;
-    const prNumber = payload.pull_request!.number;
-    const repoName = payload.repository!.name;
-    const repoOwner = payload.repository!.owner.login;
-    const token = core.getInput("token");
-    const team = core.getInput("team");
+  /**
+   * Re-runs the approval checks on pull request review.
+   *
+   * This is required because GitHub treats checks made by pull_request and
+   * pull_request_review as different status checks.
+   */
+  private async revalidateApprovers(workflowId: number) {
+    // Get all failed runs.
+    const runs = await this.octokit.paginate(
+      this.octokit.rest.actions.listWorkflowRuns,
+      {
+        owner: this.repoOwner,
+        repo: this.repoName,
+        workflow_id: workflowId,
+        branch: this.branch,
+        event: "pull_request",
+        status: "failure",
+        per_page: 100,
+      },
+    );
 
-    validateEvent(eventName);
-    validateInputs(token, team);
+    const failedRuns = runs
+      .filter((r) =>
+        (r.pull_requests || [])
+          .map((pr) => pr.number)
+          .includes(this.pullNumber),
+      )
+      .sort((v) => v.id);
 
-    const octokit = getOctokit(token, octokitOptions);
+    // If there are failed runs for this PR, re-run the workflow.
+    if (failedRuns.length > 0) {
+      await this.octokit.rest.actions.reRunWorkflow({
+        owner: this.repoOwner,
+        repo: this.repoName,
+        run_id: failedRuns[0].id,
+      });
+    }
+  }
 
-    await validateApprovers(team, prNumber, repoName, repoOwner, core, octokit);
+  private async getWorkflowId(): Promise<number> {
+    const response = await this.octokit.rest.actions.getWorkflowRun({
+      owner: this.repoOwner,
+      repo: this.repoName,
+      run_id: this.runId,
+    });
+    return response.data.workflow_id;
+  }
+
+  async validate() {
+    await this.validateApprovers();
 
     // If this action was triggered by a review, we want to re-run for previous
     // failed runs.
-    if (eventName === PULL_REQUEST_REVIEW) {
-      const workflowId = await getWorkflowId(
-        octokit,
-        repoOwner,
-        repoName,
-        runId,
-      );
-      await revalidateApprovers(
-        workflowId,
-        repoName,
-        repoOwner,
-        branch,
-        prNumber,
-        octokit,
-      );
+    if (this.eventName === "pull_request_review") {
+      const workflowId = await this.getWorkflowId();
+      await this.revalidateApprovers(workflowId);
     }
-  } catch (err) {
-    core.debug(JSON.stringify(err));
-    /*
-
-    let msg: string;
-    if (typeof err === "string") {
-      msg = err;
-    } else if (err instanceof Error) {
-      msg = err.message;
-    } else {
-      msg = String(`[${typeof err}] ${err}`);
-    }
-    */
-    core.setFailed(`Multi-approvers action failed: ${errorMessage(err)}`);
   }
 }

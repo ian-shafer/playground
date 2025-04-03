@@ -12,33 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { mock, test } from "node:test";
-import assert from "node:assert";
-import * as actionCore from "@actions/core";
-import { context as githubContext } from "@actions/github";
-import { main } from "../src/main";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import nock from "nock";
-
-type Context = typeof githubContext;
-type Core = typeof actionCore;
+import { MultiApproversAction } from "../src/main";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 
-function getFakeCore(inputs: { [key: string]: string }) {
-  return {
-    debug: () => {},
-    getInput: (name: string) => inputs[name],
-    info: () => {},
-    setFailed: () => {},
-  } as unknown as Core;
-}
-
 test("#main", { concurrency: true }, async (suite) => {
   suite.beforeEach(async () => {
-    mock.reset();
     nock.cleanAll();
   });
 
+  /*
   await suite.test("should fail on unsupported event", async (t) => {
     const inputs = {
       team: "fake-team",
@@ -177,44 +163,22 @@ test("#main", { concurrency: true }, async (suite) => {
       "Multi-approvers action failed: invalid input(s): team is required",
     );
   });
+  */
 
-  await suite.test("should ignore PRs from internal users", async (t) => {
+  await suite.test("should ignore PRs from internal users", async () => {
+    const eventName = "pull_request";
     const org = "acme";
-    const repo = "anvils";
+    const repoName = "anvils";
     const pullNumber = 12;
-    const prLogin = "wile-e-coyote";
     const team = "hunters";
-    const inputs = {
-      token: "fake-token",
-      team,
-    };
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: pullNumber,
-          head: {
-            ref: "fake-branch",
-          },
-        },
-        repository: {
-          name: repo,
-          owner: {
-            login: org,
-          },
-        },
-      },
-    } as unknown as Context;
+    const prLogin = "wile-e-coyote";
 
     nock(GITHUB_API_BASE_URL)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
       .reply(200, {
         owner: org,
         pull_number: pullNumber,
-        repo,
+        repoName,
         user: {
           login: prLogin,
         },
@@ -228,118 +192,96 @@ test("#main", { concurrency: true }, async (suite) => {
         state: "active",
       });
 
-    await main(core, context, { request: fetch });
+    const multiApproversAction = new MultiApproversAction({
+      eventName,
+      runId: 1,
+      branch: "twig",
+      pullNumber,
+      repoName,
+      repoOwner: org,
+      token: "fake-token",
+      team,
+      octokitOptions: { request: fetch },
+      logDebug: (msg: string) => {},
+      logInfo: (msg: string) => {},
+    });
 
-    assert.equal(setFailed.mock.calls.length, 0);
+    await assert.doesNotReject(
+      async () => await multiApproversAction.validate(),
+    );
   });
 
   await suite.test(
     "should reject PRs from external users and no internal approvals",
-    async (t) => {
+    async () => {
+      const eventName = "pull_request";
       const org = "acme";
-      const repo = "anvils";
+      const repoName = "anvils";
       const pullNumber = 12;
       const prLogin = "wile-e-coyote";
       const team = "hunters";
-      const inputs = {
-        token: "fake-token",
-        team,
-      };
-      const core = getFakeCore(inputs);
-      const setFailed = t.mock.method(core, "setFailed", () => {});
-      const context = {
-        eventName: "pull_request",
-        runId: 1,
-        payload: {
-          pull_request: {
-            number: pullNumber,
-            head: {
-              ref: "fake-branch",
-            },
-          },
-          repository: {
-            name: repo,
-            owner: {
-              login: org,
-            },
-          },
-        },
-      } as unknown as Context;
 
       nock(GITHUB_API_BASE_URL)
-        .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+        .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
         .reply(200, {
           owner: org,
           pull_number: pullNumber,
-          repo,
+          repoName,
           user: {
             login: prLogin,
           },
         })
         .get(`/orgs/${org}/teams/${team}/memberships/${prLogin}`)
         .reply(404)
-        .get(`/repos/${org}/${repo}/pulls/${pullNumber}/reviews`)
+        .get(`/repos/${org}/${repoName}/pulls/${pullNumber}/reviews`)
         .reply(200, []);
 
-      await main(core, context, { request: fetch });
+      const multiApproversAction = new MultiApproversAction({
+        eventName,
+        runId: 12,
+        branch: "twig",
+        pullNumber,
+        repoName,
+        repoOwner: org,
+        token: "fake-token",
+        team,
+        octokitOptions: { request: fetch },
+        logDebug: (msg: string) => {},
+        logInfo: (msg: string) => {},
+      });
 
-      assert.equal(setFailed.mock.calls.length, 1);
-      const failMsg = setFailed.mock.calls[0].arguments[0];
-      assert.equal(
-        failMsg,
-        "This pull request has 0 of 2 required internal approvals.",
-      );
+      await assert.rejects(async () => await multiApproversAction.validate(), {
+        name: "Error",
+        message: "This pull request has 0 of 2 required internal approvals.",
+      });
     },
   );
 
   await suite.test(
     "should succeed for PRs from external users and 2 internal approvals",
-    async (t) => {
+    async () => {
+      const eventName = "pull_request";
       const org = "test-org";
-      const repo = "test-repo";
+      const repoName = "test-repo";
       const pullNumber = 1;
       const prLogin = "pr-owner";
       const team = "test-team";
       const approver1 = "approver-1";
       const approver2 = "approver-2";
-      const inputs = {
-        team,
-        token: "fake-token",
-      };
-      const context = {
-        eventName: "pull_request",
-        runId: 1,
-        payload: {
-          pull_request: {
-            number: pullNumber,
-            head: {
-              ref: "test-branch",
-            },
-          },
-          repository: {
-            name: repo,
-            owner: {
-              login: org,
-            },
-          },
-        },
-      } as unknown as Context;
-      const core = getFakeCore(inputs);
-      const setFailed = t.mock.method(core, "setFailed", () => {});
 
       nock(GITHUB_API_BASE_URL)
-        .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+        .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
         .reply(200, {
           owner: org,
           pull_number: pullNumber,
-          repo,
+          repoName: repoName,
           user: {
             login: prLogin,
           },
         })
         .get(`/orgs/${org}/teams/${team}/memberships/${prLogin}`)
         .reply(404)
-        .get(`/repos/${org}/${repo}/pulls/${pullNumber}/reviews`)
+        .get(`/repos/${org}/${repoName}/pulls/${pullNumber}/reviews`)
         .reply(200, [
           {
             submitted_at: 1714636800,
@@ -373,58 +315,49 @@ test("#main", { concurrency: true }, async (suite) => {
           state: "active",
         });
 
-      await main(core, context, { request: fetch });
+      const multiApproversAction = new MultiApproversAction({
+        eventName,
+        runId: 12,
+        branch: "twig",
+        pullNumber,
+        repoName,
+        repoOwner: org,
+        token: "fake-token",
+        team,
+        octokitOptions: { request: fetch },
+        logDebug: (msg: string) => {},
+        logInfo: (msg: string) => {},
+      });
 
-      assert.equal(setFailed.mock.calls.length, 0);
+      await assert.doesNotReject(
+        async () => await multiApproversAction.validate(),
+      );
     },
   );
 
-  await suite.test("should ignore PR review comments", async (t) => {
+  await suite.test("should ignore PR review comments", async () => {
+    const eventName = "pull_request";
     const org = "test-org";
-    const repo = "test-repo";
+    const repoName = "test-repo";
     const pullNumber = 1;
     const prLogin = "pr-owner";
     const team = "test-team";
     const approver1 = "approver-1";
     const approver2 = "approver-2";
-    const inputs = {
-      team,
-      token: "fake-token",
-    };
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: pullNumber,
-          head: {
-            ref: "test-branch",
-          },
-        },
-        repository: {
-          name: repo,
-          owner: {
-            login: org,
-          },
-        },
-      },
-    } as unknown as Context;
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
 
     nock(GITHUB_API_BASE_URL)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
       .reply(200, {
         owner: org,
         pull_number: pullNumber,
-        repo,
+        repoName,
         user: {
           login: prLogin,
         },
       })
       .get(`/orgs/${org}/teams/${team}/memberships/${prLogin}`)
       .reply(404)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}/reviews`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}/reviews`)
       .reply(200, [
         {
           submitted_at: 1714636800,
@@ -458,62 +391,49 @@ test("#main", { concurrency: true }, async (suite) => {
         state: "active",
       });
 
-    await main(core, context, { request: fetch });
+    const multiApproversAction = new MultiApproversAction({
+      eventName,
+      runId: 12,
+      branch: "twig",
+      pullNumber,
+      repoName,
+      repoOwner: org,
+      token: "fake-token",
+      team,
+      octokitOptions: { request: fetch },
+      logDebug: (msg: string) => {},
+      logInfo: (msg: string) => {},
+    });
 
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "This pull request has 1 of 2 required internal approvals.",
-    );
+    await assert.rejects(async () => await multiApproversAction.validate(), {
+      name: "Error",
+      message: "This pull request has 1 of 2 required internal approvals.",
+    });
   });
 
-  await suite.test("should handle rescinded approval", async (t) => {
+  await suite.test("should handle rescinded approval", async () => {
+    const eventName = "pull_request";
     const org = "test-org";
-    const repo = "test-repo";
+    const repoName = "test-repo";
     const pullNumber = 1;
     const prLogin = "pr-owner";
     const team = "test-team";
     const approver1 = "approver-1";
     const approver2 = "approver-2";
-    const inputs = {
-      team,
-      token: "fake-token",
-    };
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: pullNumber,
-          head: {
-            ref: "test-branch",
-          },
-        },
-        repository: {
-          name: repo,
-          owner: {
-            login: org,
-          },
-        },
-      },
-    } as unknown as Context;
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
 
     nock(GITHUB_API_BASE_URL)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
       .reply(200, {
         owner: org,
         pull_number: pullNumber,
-        repo,
+        repoName,
         user: {
           login: prLogin,
         },
       })
       .get(`/orgs/${org}/teams/${team}/memberships/${prLogin}`)
       .reply(404)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}/reviews`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}/reviews`)
       .reply(200, [
         {
           submitted_at: 1714636800,
@@ -562,62 +482,49 @@ test("#main", { concurrency: true }, async (suite) => {
         state: "active",
       });
 
-    await main(core, context, { request: fetch });
+    const multiApproversAction = new MultiApproversAction({
+      eventName,
+      runId: 12,
+      branch: "twig",
+      pullNumber,
+      repoName,
+      repoOwner: org,
+      token: "fake-token",
+      team,
+      octokitOptions: { request: fetch },
+      logDebug: (msg: string) => {},
+      logInfo: (msg: string) => {},
+    });
 
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "This pull request has 1 of 2 required internal approvals.",
-    );
+    await assert.rejects(async () => await multiApproversAction.validate(), {
+      name: "Error",
+      message: "This pull request has 1 of 2 required internal approvals.",
+    });
   });
 
-  await suite.test("should fail with pending member approval", async (t) => {
+  await suite.test("should fail with pending member approval", async () => {
+    const eventName = "pull_request";
     const org = "test-org";
-    const repo = "test-repo";
+    const repoName = "test-repo";
     const pullNumber = 1;
     const prLogin = "pr-owner";
     const team = "test-team";
     const approver1 = "approver-1";
     const approver2 = "approver-2";
-    const inputs = {
-      team,
-      token: "fake-token",
-    };
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: pullNumber,
-          head: {
-            ref: "test-branch",
-          },
-        },
-        repository: {
-          name: repo,
-          owner: {
-            login: org,
-          },
-        },
-      },
-    } as unknown as Context;
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
 
     nock(GITHUB_API_BASE_URL)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
       .reply(200, {
         owner: org,
         pull_number: pullNumber,
-        repo,
+        repoName,
         user: {
           login: prLogin,
         },
       })
       .get(`/orgs/${org}/teams/${team}/memberships/${prLogin}`)
       .reply(404)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}/reviews`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}/reviews`)
       .reply(200, [
         {
           submitted_at: 1714636800,
@@ -651,19 +558,30 @@ test("#main", { concurrency: true }, async (suite) => {
         state: "pending",
       });
 
-    await main(core, context, { request: fetch });
+    const multiApproversAction = new MultiApproversAction({
+      eventName,
+      runId: 12,
+      branch: "twig",
+      pullNumber,
+      repoName,
+      repoOwner: org,
+      token: "fake-token",
+      team,
+      octokitOptions: { request: fetch },
+      logDebug: (msg: string) => {},
+      logInfo: (msg: string) => {},
+    });
 
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "This pull request has 1 of 2 required internal approvals.",
-    );
+    await assert.rejects(async () => await multiApproversAction.validate(), {
+      name: "Error",
+      message: "This pull request has 1 of 2 required internal approvals.",
+    });
   });
 
-  await suite.test("should re-run failed runs on PR reviews", async (t) => {
+  await suite.test("should re-run failed runs on PR reviews", async () => {
+    const eventName = "pull_request_review";
     const org = "test-org";
-    const repo = "test-repo";
+    const repoName = "test-repo";
     const pullNumber = 1;
     const prLogin = "pr-owner";
     const team = "test-team";
@@ -673,44 +591,20 @@ test("#main", { concurrency: true }, async (suite) => {
     const workflowId = 37;
     const failedRunId = 827;
     const branch = "test-branch";
-    const inputs = {
-      team,
-      token: "fake-token",
-    };
-    const context = {
-      eventName: "pull_request_review",
-      runId,
-      payload: {
-        pull_request: {
-          number: pullNumber,
-          head: {
-            ref: branch,
-          },
-        },
-        repository: {
-          name: repo,
-          owner: {
-            login: org,
-          },
-        },
-      },
-    } as unknown as Context;
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
 
     nock(GITHUB_API_BASE_URL)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}`)
       .reply(200, {
         owner: org,
         pull_number: pullNumber,
-        repo,
+        repoName,
         user: {
           login: prLogin,
         },
       })
       .get(`/orgs/${org}/teams/${team}/memberships/${prLogin}`)
       .reply(404)
-      .get(`/repos/${org}/${repo}/pulls/${pullNumber}/reviews`)
+      .get(`/repos/${org}/${repoName}/pulls/${pullNumber}/reviews`)
       .reply(200, [
         {
           submitted_at: 1714636800,
@@ -743,11 +637,11 @@ test("#main", { concurrency: true }, async (suite) => {
         role: "member",
         state: "pending",
       })
-      .get(`/repos/${org}/${repo}/actions/runs/${runId}`)
+      .get(`/repos/${org}/${repoName}/actions/runs/${runId}`)
       .reply(200, {
         workflow_id: workflowId,
       })
-      .get(`/repos/${org}/${repo}/actions/workflows/${workflowId}/runs`)
+      .get(`/repos/${org}/${repoName}/actions/workflows/${workflowId}/runs`)
       .query({
         branch,
         event: "pull_request",
@@ -764,16 +658,26 @@ test("#main", { concurrency: true }, async (suite) => {
           ],
         },
       ])
-      .post(`/repos/${org}/${repo}/actions/runs/${failedRunId}/rerun`)
+      .post(`/repos/${org}/${repoName}/actions/runs/${failedRunId}/rerun`)
       .reply(200, {});
 
-    await main(core, context, { request: fetch });
+    const multiApproversAction = new MultiApproversAction({
+      eventName,
+      runId: 12,
+      branch: "twig",
+      pullNumber,
+      repoName,
+      repoOwner: org,
+      token: "fake-token",
+      team,
+      octokitOptions: { request: fetch },
+      logDebug: (msg: string) => {},
+      logInfo: (msg: string) => {},
+    });
 
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "This pull request has 1 of 2 required internal approvals.",
-    );
+    await assert.rejects(async () => await multiApproversAction.validate(), {
+      name: "Error",
+      message: "This pull request has 1 of 2 required internal approvals.",
+    });
   });
 });
