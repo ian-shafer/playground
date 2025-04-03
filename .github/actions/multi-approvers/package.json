@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "type": "commonjs",
   "scripts": {
-    "build": "ncc build -m src/index.ts -o dist",
+    "build": "ncc build -m src/main.ts -o dist",
     "clean": "rm -rf dist .tsc",
     "format": "npm run lint-fix",
     "lint": "eslint .",
@@ -32,5 +32,5 @@
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.29.0"
   },
-  "exports": "dist/index.js"
+  "exports": "dist/main.js"
 }
