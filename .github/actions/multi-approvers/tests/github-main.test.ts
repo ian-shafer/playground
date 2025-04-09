@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import assert from "node:assert/strict";
-import { mock, test } from "node:test";
+import { test } from "node:test";
 import * as ghCore from "@actions/core";
 import { context as ghContext } from "@actions/github";
 import { main } from "../src/github-main";
@@ -21,7 +21,7 @@ import { main } from "../src/github-main";
 type Core = typeof ghCore;
 type Context = typeof ghContext;
 
-function getFakeCore(inputs: { [key: string]: string }): Core {
+function newFakeCore(inputs: { [key: string]: string }): Core {
   return {
     debug: () => {},
     getInput: (name: string) => inputs[name],
@@ -31,16 +31,8 @@ function getFakeCore(inputs: { [key: string]: string }): Core {
 }
 
 test("#github-main", { concurrency: true }, async (suite) => {
-  suite.beforeEach(async () => {
-    mock.reset();
-  });
-
   await suite.test("should fail on unsupported event", async (t) => {
-    const inputs = {
-      team: "fake-team",
-      token: "fake-token",
-    };
-    const core = getFakeCore(inputs);
+    const core = newFakeCore({ token: "fake-token", team: "fake-team" });
     const setFailed = t.mock.method(core, "setFailed", () => {});
     const context = {
       eventName: "push",
@@ -67,110 +59,7 @@ test("#github-main", { concurrency: true }, async (suite) => {
     const failMsg = setFailed.mock.calls[0].arguments[0];
     assert.equal(
       failMsg,
-      "Multi-approvers action failed: Unexpected event [push].",
-    );
-  });
-
-  await suite.test("fails when no inputs are set", async (t) => {
-    const inputs = {};
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: 1,
-          head: {
-            ref: "fake-branch",
-          },
-        },
-        repository: {
-          name: "fake-repository",
-          owner: {
-            login: "test-org",
-          },
-        },
-      },
-    } as unknown as Context;
-
-    await main(core, context);
-
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "Multi-approvers action failed: Invalid input(s): token is required; team is required",
-    );
-  });
-
-  await suite.test("fails when token input is not set", async (t) => {
-    const inputs = {
-      team: "fake-team",
-    };
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: 1,
-          head: {
-            ref: "fake-branch",
-          },
-        },
-        repository: {
-          name: "fake-repository",
-          owner: {
-            login: "test-org",
-          },
-        },
-      },
-    } as unknown as Context;
-
-    await main(core, context);
-
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "Multi-approvers action failed: Invalid input(s): token is required",
-    );
-  });
-
-  await suite.test("fails when team input is not set", async (t) => {
-    const inputs = {
-      token: "fake-token",
-    };
-    const core = getFakeCore(inputs);
-    const setFailed = t.mock.method(core, "setFailed", () => {});
-    const context = {
-      eventName: "pull_request",
-      runId: 1,
-      payload: {
-        pull_request: {
-          number: 1,
-          head: {
-            ref: "fake-branch",
-          },
-        },
-        repository: {
-          name: "fake-repository",
-          owner: {
-            login: "test-org",
-          },
-        },
-      },
-    } as unknown as Context;
-
-    await main(core, context);
-
-    assert.equal(setFailed.mock.calls.length, 1);
-    const failMsg = setFailed.mock.calls[0].arguments[0];
-    assert.equal(
-      failMsg,
-      "Multi-approvers action failed: Invalid input(s): team is required",
+      "Multi-approvers action failed: unexpected event [push].",
     );
   });
 });

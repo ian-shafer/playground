@@ -11,12 +11,14 @@
     "format": "npm run lint-fix",
     "lint": "eslint .",
     "lint-fix": "eslint . --fix",
+    "pre-submit": "npm run clean && npm run lint-fix && npm run build && npm run test",
     "test": "bash ./bin/test.sh",
     "tsc": "tsc"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
+    "@google-github-actions/actions-utils": "^0.8.6",
     "@octokit/rest": "^21.1.1"
   },
   "devDependencies": {
