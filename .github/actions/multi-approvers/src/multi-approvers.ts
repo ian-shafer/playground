@@ -258,8 +258,8 @@ export class MultiApproversAction {
           .map((pr) => pr.number)
           .includes(this.pullNumber),
       )
-      .sort((a, b) => a.run_number - b.run_number)
-      .reverse();
+      .sort((a, b) => a.run_number - b.run_number)/*
+      .reverse()*/;
 
     this.logDebug(`Runs: ${JSON.stringify(prRuns)}`);
 
