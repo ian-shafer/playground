@@ -183,8 +183,9 @@ export class MultiApproversAction {
       }
     }
 
-    return Array.from(reviewStateByLogin.values()).filter((s) => s === "APPROVED")
-      .length;
+    return Array.from(reviewStateByLogin.values()).filter(
+      (s) => s === "APPROVED",
+    ).length;
   }
 
   /** Checks that approval requirements are satisfied. */
@@ -237,7 +238,7 @@ export class MultiApproversAction {
    * This is required because GitHub treats checks made by pull_request and
    * pull_request_review as different status checks.
    */
-  private async revalidatePullRequestRuns() {
+  private async revalidate(event: EventName) {
     const workflowId = await this.getWorkflowId();
     // Get all failed runs.
     const runs = await this.octokit.paginate(
@@ -247,13 +248,12 @@ export class MultiApproversAction {
         repo: this.repoName,
         workflow_id: workflowId,
         branch: this.branch,
-        event: "pull_request",
-        status: "failure",
+        event: event,
         per_page: 100,
       },
     );
 
-    const failedRuns = runs
+    const prRuns = runs
       .filter((r) =>
         (r.pull_requests || [])
           .map((pr) => pr.number)
@@ -262,14 +262,14 @@ export class MultiApproversAction {
       .sort((a, b) => a.run_number - b.run_number)
       .reverse();
 
-    this.logDebug(`Failed runs: ${JSON.stringify(failedRuns)}`);
+    this.logDebug(`Runs: ${JSON.stringify(prRuns)}`);
 
     // If there are failed runs for this PR, re-run the workflow.
-    if (failedRuns.length > 0) {
+    if (prRuns.length > 0) {
       await this.octokit.rest.actions.reRunWorkflow({
         owner: this.repoOwner,
         repo: this.repoName,
-        run_id: failedRuns[0].id,
+        run_id: prRuns[0].id,
       });
     }
   }
@@ -284,12 +284,11 @@ export class MultiApproversAction {
   }
 
   async validate() {
-    // If this action was triggered by a review, we want to re-run for previous
-    // failed pull_request-triggered runs.
-    if (this.eventName === "pull_request_review") {
-      await this.revalidatePullRequestRuns();
-    }
-
+    await this.revalidate(
+      this.eventName === "pull_request_review"
+        ? "pull_request"
+        : "pull_request_review",
+    );
     await this.validateApprovers();
   }
 }
