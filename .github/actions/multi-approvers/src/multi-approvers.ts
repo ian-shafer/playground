@@ -46,9 +46,11 @@ export interface MultiApproversParams {
   octokitOptions?: OctokitOptions;
   logDebug: (_: string) => void;
   logInfo: (_: string) => void;
+  logNotice: (_: string) => void;
 }
 
 export class MultiApproversAction {
+  private readonly isInternalCache = new Map<string, boolean>();
   private readonly eventName: string;
   private readonly runId: number;
   private readonly branch: string;
@@ -68,6 +70,7 @@ export class MultiApproversAction {
     this.team = params.team;
     this.logDebug = params.logDebug;
     this.logInfo = params.logInfo;
+    this.logNotice = params.logNotice;
 
     this.octokit = getOctokit(params.token, params.octokitOptions);
   }
@@ -78,8 +81,22 @@ export class MultiApproversAction {
   // Set in the constructor.
   private logInfo: (_: string) => void;
 
-  // Tests whether the given login is an active member of the team.
+  // Set in the constructor.
+  private logNotice: (_: string) => void;
+
+  // TODO(ishafer): Consider using a memoization library.
   private async isInternal(login: string): Promise<boolean> {
+    const cachedValue = this.isInternalCache.get(login);
+    if (cachedValue !== undefined) {
+      return cachedValue;
+    }
+    const value = await this._isInternal(login);
+    this.isInternalCache.set(login, value);
+    return value;
+  }
+
+  // Tests whether the given login is an active member of the team.
+  private async _isInternal(login: string): Promise<boolean> {
     try {
       const response = await this.octokit.rest.teams.getMembershipForUserInOrg({
         org: this.repoOwner,
@@ -122,10 +139,18 @@ export class MultiApproversAction {
     const reviewStateByLogin = new Map<string, string>();
 
     for (const r of sortedReviews) {
-      const reviewerLogin = r.user!.login;
+      if (!r.user) {
+        this.logNotice(
+          `Ignoring pull request review because user is unset: ${JSON.stringify(r)}`,
+        );
+        continue;
+      }
+
+      const reviewerLogin = r.user.login;
 
       // Ignore the PR user.
       if (reviewerLogin === prLogin) {
+        this.logDebug(`Ignoring review from ${prLogin} (self)`);
         continue;
       }
 
@@ -232,12 +257,7 @@ export class MultiApproversAction {
           .map((pr) => pr.number)
           .includes(this.pullNumber),
       )
-      .sort(
-        (a, b) =>
-          new Date(a.run_started_at || 0).getTime() -
-          new Date(b.run_started_at || 0).getTime(),
-      )
-      .reverse();
+      .sort((v) => v.id);
 
     // If there are failed runs for this PR, re-run the workflow.
     if (failedRuns.length > 0) {
@@ -261,8 +281,8 @@ export class MultiApproversAction {
   async validate() {
     await this.validateApprovers();
 
-    // If this action was triggered by a review, we want to re-run the latest
-    // failed run.
+    // If this action was triggered by a review, we want to re-run for previous
+    // failed runs.
     if (this.eventName === "pull_request_review") {
       const workflowId = await this.getWorkflowId();
       await this.revalidateApprovers(workflowId);
