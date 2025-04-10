@@ -143,7 +143,7 @@ export class MultiApproversAction {
     const reviewStateByLogin = new Map<string, string>();
 
     for (const r of sortedReviews) {
-      this.logDebug(`Review: ${r}`);
+      this.logDebug(`Review: ${JSON.stringify(r)}`);
       if (!r.user) {
         this.logNotice(
           `Ignoring pull request review because user is unset: ${JSON.stringify(r)}`,
