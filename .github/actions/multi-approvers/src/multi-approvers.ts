@@ -183,9 +183,8 @@ export class MultiApproversAction {
       }
     }
 
-    return Array.from(reviewStateByLogin.values()).filter(
-      (s) => s === "APPROVED",
-    ).length;
+    return Array.from(reviewStateByLogin.values()).filter((s) => s === "APPROVED")
+      .length;
   }
 
   /** Checks that approval requirements are satisfied. */
@@ -238,7 +237,7 @@ export class MultiApproversAction {
    * This is required because GitHub treats checks made by pull_request and
    * pull_request_review as different status checks.
    */
-  private async revalidate(event: EventName) {
+  private async revalidate() {
     const workflowId = await this.getWorkflowId();
     // Get all failed runs.
     const runs = await this.octokit.paginate(
@@ -248,7 +247,7 @@ export class MultiApproversAction {
         repo: this.repoName,
         workflow_id: workflowId,
         branch: this.branch,
-        event: event,
+        event: "pull_request",
         per_page: 100,
       },
     );
@@ -284,11 +283,9 @@ export class MultiApproversAction {
   }
 
   async validate() {
-    await this.revalidate(
-      this.eventName === "pull_request_review"
-        ? "pull_request"
-        : "pull_request_review",
-    );
+    if (this.eventName === "pull_request_review") {
+      await this.revalidate();
+    }
     await this.validateApprovers();
   }
 }
