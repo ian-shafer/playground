@@ -160,6 +160,7 @@ export class MultiApproversAction {
 
       // Only consider internal users.
       const isInternalUser = await this.isInternal(reviewerLogin);
+      this.logDebug(`Is internal: [${reviewerLogin}] [${isInternalUser}]`);
       if (!isInternalUser) {
         continue;
       }
