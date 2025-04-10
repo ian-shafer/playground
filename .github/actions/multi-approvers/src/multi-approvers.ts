@@ -140,7 +140,6 @@ export class MultiApproversAction {
     const reviewStateByLogin = new Map<string, string>();
 
     for (const r of sortedReviews) {
-      this.logDebug(`Review: ${JSON.stringify(r)}`);
       if (!r.user) {
         this.logNotice(
           `Ignoring pull request review because user is unset: ${JSON.stringify(r)}`,
@@ -158,7 +157,6 @@ export class MultiApproversAction {
 
       // Only consider internal users.
       const isInternalUser = await this.isInternal(reviewerLogin);
-      this.logDebug(`Is internal: [${reviewerLogin}] [${isInternalUser}]`);
       if (!isInternalUser) {
         continue;
       }
@@ -239,7 +237,8 @@ export class MultiApproversAction {
    * This is required because GitHub treats checks made by pull_request and
    * pull_request_review as different status checks.
    */
-  private async revalidateApprovers(workflowId: number) {
+  private async revalidatePullRequestRuns() {
+    const workflowId = await this.getWorkflowId();
     // Get all failed runs.
     const runs = await this.octokit.paginate(
       this.octokit.rest.actions.listWorkflowRuns,
@@ -260,7 +259,10 @@ export class MultiApproversAction {
           .map((pr) => pr.number)
           .includes(this.pullNumber),
       )
-      .sort((v) => v.id);
+      .sort((a, b) => a.run_number - b.run_number)
+      .reverse();
+
+    this.logDebug(`Failed runs: ${JSON.stringify(failedRuns)}`);
 
     // If there are failed runs for this PR, re-run the workflow.
     if (failedRuns.length > 0) {
@@ -282,13 +284,12 @@ export class MultiApproversAction {
   }
 
   async validate() {
-    await this.validateApprovers();
-
     // If this action was triggered by a review, we want to re-run for previous
-    // failed runs.
+    // failed pull_request-triggered runs.
     if (this.eventName === "pull_request_review") {
-      const workflowId = await this.getWorkflowId();
-      await this.revalidateApprovers(workflowId);
+      await this.revalidatePullRequestRuns();
     }
+
+    await this.validateApprovers();
   }
 }
