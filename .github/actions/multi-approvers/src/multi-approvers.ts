@@ -1,5 +1,5 @@
 // Copyright 2025 Google LLC
-//
+
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -131,6 +131,7 @@ export class MultiApproversAction {
     submittedReviews: PullRequestReview,
     prLogin: string,
   ): Promise<number> {
+    this.logDebug(`Pull request reviews: ${JSON.stringify(submittedReviews)}`);
     // Sort by chronological order.
     const sortedReviews = submittedReviews.sort(
       (a, b) =>
