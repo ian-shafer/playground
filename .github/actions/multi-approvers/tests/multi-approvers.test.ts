@@ -232,14 +232,6 @@ test("#multi-approvers", { concurrency: true }, async (suite) => {
         username: approver1,
         role: "member",
         state: "active",
-      })
-      .get(`/orgs/${repoOwner}/teams/${team}/memberships/${approver2}`)
-      .reply(200, {
-        org: repoOwner,
-        team_slug: team,
-        username: approver2,
-        role: "member",
-        state: "active",
       });
 
     await assertRejects(
@@ -372,7 +364,6 @@ test("#multi-approvers", { concurrency: true }, async (suite) => {
   });
 
   await suite.test("should re-run failed runs on PR reviews", async () => {
-    // DO NOT SUBMIT check runId
     const { repoOwner, repoName, pullNumber, team, branch, runId } =
       BASE_PARAMS;
     const eventName = "pull_request_review";
@@ -397,14 +388,14 @@ test("#multi-approvers", { concurrency: true }, async (suite) => {
       .get(`/repos/${repoOwner}/${repoName}/pulls/${pullNumber}/reviews`)
       .reply(200, [
         {
-          submitted_at: 1714636800,
+          run_number: 21,
           user: {
             login: approver1,
           },
           state: "APPROVED",
         },
         {
-          submitted_at: 1714636801,
+          run_number: 22,
           user: {
             login: approver2,
           },
@@ -437,7 +428,6 @@ test("#multi-approvers", { concurrency: true }, async (suite) => {
       .query({
         branch,
         event: "pull_request",
-        status: "failure",
         per_page: 100,
       })
       .reply(200, [
